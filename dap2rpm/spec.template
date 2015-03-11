@@ -27,7 +27,8 @@ Requires:       {{ r }}
 %repack_assistant
 
 %install
-%install_assistant
+%install_assistant {% if licensefiles %}-L{% for l in licensefiles %} {{ l }}{% endfor %}{% endif %}
+
 
 %check
 %check_assistant

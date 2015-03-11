@@ -15,6 +15,8 @@ def main():
                         help='Include all files in the %%files section in SPEC (not recommended)')
     parser.add_argument('-l', '--filelist', action='store_true',
                         help='Output only the list of %%files (used during %%assistant_install)')
+    parser.add_argument('-L', '--license', default=None, nargs='+',
+                        help='List these filenames (stored under \'doc\') under the %%license tag.')
     parser.add_argument('-s', '--save-dap', default=None, metavar='LOCATION',
                         help='Save the DAP to a given directory (useful especially ' +
                              'when downloading from DAPI)')
@@ -26,7 +28,7 @@ def main():
         # TODO: log error
         sys.exit(1)
 
-    d = dap.DAP.get_dap(args['dap'], args['version'], args['save_dap'])
+    d = dap.DAP.get_dap(args['dap'], args['version'], args['save_dap'], args['license'])
 
     if args['filelist']:
         print(d.render_files())

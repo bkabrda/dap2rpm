@@ -14,14 +14,15 @@ from dap2rpm import exceptions
 class DAP(object):
     dapi_api_url = 'https://dapi.devassistant.org/api/'
 
-    def __init__(self, path, url=''):
+    def __init__(self, path, url='', licensefiles=None):
         self.path = path
         self.url = url
+        self.licensefiles = licensefiles
         self.name_version, self.name, self.version = self._get_name_and_version()
         self.tarhandle = tarfile.open(self.path, mode='r:*')
 
     @classmethod
-    def get_dap(cls, dapname, version=None, saveto=None):
+    def get_dap(cls, dapname, version=None, saveto=None, licensefiles=None):
         """Gets DAP from DAPI or local file and saves it to self.saveto
 
         Args:
@@ -44,9 +45,9 @@ class DAP(object):
 
         try:
             if dapname.endswith('.dap'):
-                return cls._get_dap_local(dapname, saveto)
+                return cls._get_dap_local(dapname, saveto, licensefiles)
             else:
-                return cls._get_dap_from_dapi(dapname, version, saveto)
+                return cls._get_dap_from_dapi(dapname, version, saveto, licensefiles)
         finally: # Deleting temporary directory
             if to_delete and os.path.isdir(to_delete):
                 try:
@@ -55,7 +56,7 @@ class DAP(object):
                     pass
 
     @classmethod
-    def _get_dap_from_dapi(cls, dapname, version, saveto):
+    def _get_dap_from_dapi(cls, dapname, version, saveto, licensefiles):
         """Gets DAP from DAPI and saves it to self.saveto.
 
         Args:
@@ -90,10 +91,10 @@ class DAP(object):
                 if chunk:  # filter out keep-alive new chunks
                     f.write(chunk)
                     f.flush()
-        return cls(resname, url=download_url)
+        return cls(resname, url=download_url, licensefiles=licensefiles)
 
     @classmethod
-    def _get_dap_local(cls, dapname, saveto):
+    def _get_dap_local(cls, dapname, saveto, licensefiles):
         """Copies dap from a local filesystem to self.saveto.
         Ignores self.version.
 
@@ -112,7 +113,7 @@ class DAP(object):
             shutil.copy2(dapname, resname)
         except IOError as e:
             raise exceptions.DAPGetException('Can\'t get local DAP: {0}'.format(e))
-        return cls(resname)
+        return cls(resname, licensefiles=licensefiles)
 
     def extract_info(self):
         info = {'name': self.name, 'version': self.version}
@@ -185,26 +186,36 @@ class DAP(object):
             return '%{name}-%{version}.dap'
 
     def _get_dirs_for_rendering(self):
-        files = self.tarhandle.getnames()
-        doc = None
+        files = self.tarhandle.getmembers()
+        licensefiles = set()
+        docdir = None
+        docfiles = set()
         icons = None
         yaml_dirs = set()
-        for f in files:
-            if f.startswith(self._nv_opj('doc')):
-                doc = self._opj('doc')
-            elif f.startswith(self._nv_opj('snippets')):
+        for fn in [f.name for f in files if f.isfile()]:
+            if self.licensefiles and fn.startswith(self._nv_opj('doc')):
+                if os.path.basename(fn) in self.licensefiles:
+                    licensefiles.add(os.path.basename(fn))
+                else:
+                    docfiles.add(os.path.basename(fn))
+            elif fn.startswith(self._nv_opj('doc')):
+                docdir = (self._opj('doc'))
+            elif fn.startswith(self._nv_opj('snippets')):
                 yaml_dirs.add(self._opj('snippets'))
 
             types = ['crt', 'twk', 'prep', 'extra']
             for t in types:
                 for d in ['assistants', 'icons']:
-                    if f.startswith(self._nv_opj(d, t)):
+                    if fn.startswith(self._nv_opj(d, t)):
                         yaml_dirs.add(self._opj(d, t))
             for t in types + ['snippets']:
-                if f.startswith(self._nv_opj('files', t)):
+                if fn.startswith(self._nv_opj('files', t)):
                     yaml_dirs.add(self._opj('files', t))
 
-        return {'doc': doc, 'icons': icons, 'yaml_dirs': list(sorted(yaml_dirs))}
+        return {'doc': docfiles if self.licensefiles else docdir,
+                'icons': icons,
+                'yaml_dirs': list(sorted(yaml_dirs)),
+                'licensefiles': list(sorted(licensefiles))}
 
     def _nv_opj(self, *paths):
         return os.path.join(self.name_version, *paths)
