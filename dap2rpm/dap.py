@@ -192,7 +192,7 @@ class DAP(object):
         docfiles = set()
         icons = None
         yaml_dirs = set()
-        for fn in [f.name for f in files if f.isfile()]:
+        for fn in [f.name for f in files if f.isfile() or f.issym()]:
             if self.licensefiles and fn.startswith(self._nv_opj('doc')):
                 if os.path.basename(fn) in self.licensefiles:
                     licensefiles.add(os.path.basename(fn))
