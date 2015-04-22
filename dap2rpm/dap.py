@@ -1,3 +1,4 @@
+import getpass
 import os
 import shutil
 import subprocess
@@ -10,6 +11,7 @@ import requests
 import yaml
 
 from dap2rpm import exceptions
+from dap2rpm.logger import logger
 
 class DAP(object):
     dapi_api_url = 'https://dapi.devassistant.org/api/'
@@ -79,6 +81,9 @@ class DAP(object):
             except KeyError:
                 raise exceptions.\
                     DAPGetException('DAP "{0}" not found on DAPI'.format(dapname))
+            except requests.exceptions.SSLError as e:
+                if "doesn't match either" in str(e):
+                    raise exceptions.DAPGetException('SSL Error caused by old pyOpenSSL occurred. You need to update pyOpenSSL to version 0.14 or newer.')
         try:
             download_url = yaml.load(requests.get(dap_url).text)['download']
         except KeyError:
@@ -145,12 +150,21 @@ class DAP(object):
         return [name_version] + name_version.rsplit('-', 1)
 
     def _get_changelog_entry(self):
+        '''
+        Get changelog template string with user credentials, version etc.
+
+        User credentials are obtained through rpmdev-packager. If this binary is missing or fails,
+        plain username is used.
+        '''
+        packager = getpass.getuser()
         try:
             packager = subprocess.check_output(['rpmdev-packager']).decode('utf-8').strip()
-        except subprocess.CalledProcessError as e:
-            # Workaround for https://fedorahosted.org/rpmdevtools/ticket/29
-            import getpass
-            packager = getpass.getuser()
+        except OSError:
+            msg = 'Program rpmdev-packager was not found. Plain username will be used for changelog entries.'
+            logger.warning(msg)
+        except subprocess.CalledProcessError:
+            msg = 'There was an error running rpmdev-packager. Plain username will be used for changelog entries.'
+            logger.warning(msg)
 
         ce = '* {date} {packager} - {version}-1\nInitial package'.format(
             date=time.strftime('%a %b %d %Y', time.gmtime()),

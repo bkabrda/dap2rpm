@@ -5,6 +5,7 @@ import sys
 
 from dap2rpm import dap
 from dap2rpm import setup
+from dap2rpm.logger import logger
 
 def main():
     parser = argparse.ArgumentParser()
@@ -24,11 +25,10 @@ def main():
 
     try:
         setup.setup()
-    except:
-        # TODO: log error
+        d = dap.DAP.get_dap(args['dap'], args['version'], args['save_dap'], args['license'])
+    except Exception as e:
+        logger.error(str(e)) # TODO log also the filename for FileNotFoundErrors in Python 2
         sys.exit(1)
-
-    d = dap.DAP.get_dap(args['dap'], args['version'], args['save_dap'], args['license'])
 
     if args['filelist']:
         print(d.render_files())
