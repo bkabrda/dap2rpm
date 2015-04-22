@@ -21,6 +21,9 @@ def main():
     parser.add_argument('-s', '--save-dap', default=None, metavar='LOCATION',
                         help='Save the DAP to a given directory (useful especially ' +
                              'when downloading from DAPI)')
+    parser.add_argument('--keep-format', action='store_true',
+                        help='Keep pre-release string (dev, a, b) in the Version tag. ' + \
+                             'Not allowed by Fedora guidelines.')
     args = vars(parser.parse_args())
 
     try:
@@ -33,6 +36,6 @@ def main():
     if args['filelist']:
         print(d.render_files())
     elif args['files']:
-        print(d.render_spec(include_files=True))
+        print(d.render_spec(include_files=True, keep_format=args['keep_format']))
     else:
-        print(d.render_spec())
+        print(d.render_spec(keep_format=args['keep_format']))

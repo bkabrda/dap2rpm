@@ -2,7 +2,7 @@
 
 Name:           devassistant-dap-%{shortname}
 Version:        {{ version }}
-Release:        1%{?dist}
+Release:        {{ release }}
 Summary:        {{ summary }}
 
 BuildArch:      noarch

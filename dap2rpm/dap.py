@@ -1,5 +1,6 @@
 import getpass
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -120,27 +121,43 @@ class DAP(object):
             raise exceptions.DAPGetException('Can\'t get local DAP: {0}'.format(e))
         return cls(resname, licensefiles=licensefiles)
 
-    def extract_info(self):
-        info = {'name': self.name, 'version': self.version}
+    def extract_info(self, **kwargs):
+        info = {'name': self.name}
         info.update(self._get_dirs_for_rendering())
         info.update(self._get_info_from_meta())
         info['changelog_entry'] = self._get_changelog_entry()
+
+        info.update(self._get_version_release(keep_format=kwargs.get('keep_format', False)))
+
         return info
 
-    def _render(self, template_name, extra_vars=None):
+    def _get_version_release(self, keep_format=False):
+        found = re.search('dev|a|b', self.version)
+
+        if found and not keep_format:
+            version = self.version[:found.start()]
+            release = '0.1.{ver}'.format(ver=self.version[found.start():])
+        else:
+            version = self.version
+            release = '1'
+
+        return {'version': version, 'release': release + '%{?dist}'}
+
+
+    def _render(self, template_name, extra_vars=None, **kwargs):
         jinja_env = jinja2.Environment(loader=jinja2.PackageLoader('dap2rpm', '.'),
             trim_blocks=True, lstrip_blocks=True)
         template = jinja_env.get_template(template_name)
-        template_vars = self.extract_info()
+        template_vars = self.extract_info(**kwargs)
         if extra_vars:
             template_vars.update(extra_vars)
         return template.render(**template_vars)
 
-    def render_spec(self, include_files=False):
+    def render_spec(self, include_files=False, **kwargs):
         files_section = '%files -f dap-files'
         if include_files:
             files_section = '%files\n' + self._render('files.template')
-        return self._render('spec.template', {'files_section': files_section})
+        return self._render('spec.template', {'files_section': files_section}, **kwargs)
 
     def render_files(self):
         return self._render('files.template')
